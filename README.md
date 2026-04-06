@@ -62,6 +62,20 @@ For production, run with `systemd` and reverse proxy via NGINX to expose HTTPS e
 
 ### 2) Install WordPress plugin wrapper
 
+### Ready-to-import ZIP (for WordPress upload)
+
+Generate plugin ZIP with one command:
+
+```bash
+./wordpress/build_plugin_zip.sh
+```
+
+It will produce:
+
+- `dist/cleopatra-rentals-chat-widget.zip`
+
+Upload this ZIP in **WordPress Admin → Plugins → Add New → Upload Plugin**.
+
 1. In WordPress Admin, go to **Plugins → Add New → Upload Plugin**.
 2. Zip this project (or just the plugin + frontend files) and upload it.
 3. Activate **Cleopatra Rentals Smart Chat Widget**.

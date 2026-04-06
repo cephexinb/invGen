@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cleopatra Rentals Smart Chat Widget
  * Description: Embeds Cleopatra Rentals listing assistant widget and connects it to your listing bot API.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Cleopatra Rentals
  */
 
@@ -63,26 +63,24 @@ function cleo_chat_widget_settings_page() {
 }
 
 function cleo_chat_widget_enqueue_assets() {
-    $plugin_url = plugin_dir_url(__FILE__);
-
-    wp_enqueue_style(
-        'cleo-chat-widget-style',
-        $plugin_url . '../frontend/widget.css',
-        array(),
-        '1.0.0'
-    );
-
     $config = array(
         'apiBaseUrl' => get_option('cleo_chat_widget_api_base_url', 'https://YOUR-API-DOMAIN'),
         'title' => get_option('cleo_chat_widget_title', 'Cleopatra Rentals Assistant'),
         'greeting' => get_option('cleo_chat_widget_greeting', 'Hi 👋 Tell me what kind of rental you need and I will find matching listings.')
     );
 
+    wp_enqueue_style(
+        'cleo-chat-widget-style',
+        plugin_dir_url(__FILE__) . 'assets/widget.css',
+        array(),
+        '1.1.0'
+    );
+
     wp_register_script(
         'cleo-chat-widget-script',
-        $plugin_url . '../frontend/widget.js',
+        plugin_dir_url(__FILE__) . 'assets/widget.js',
         array(),
-        '1.0.0',
+        '1.1.0',
         true
     );
 
