@@ -1,13 +1,31 @@
 (function () {
   const config = Object.assign(
     {
-      apiBaseUrl: "http://localhost:8080",
+      apiBaseUrl: "",
+      directChatUrl: "",
+      chatEndpoint: "/api/chat",
       title: "Cleopatra Rentals Assistant",
       greeting: "Hi 👋 I can help you find the best listing. Tell me your preferred area, bedrooms, and budget.",
       placeholder: "Ask about a listing or tell me what you need...",
     },
     window.CLEO_WIDGET_CONFIG || {}
   );
+
+  const buildChatUrl = () => {
+    if (config.directChatUrl) {
+      return config.directChatUrl;
+    }
+
+    if (!config.apiBaseUrl) {
+      return "/wp-json/cleo-chat/v1/chat";
+    }
+
+    const base = String(config.apiBaseUrl).replace(/\/$/, "");
+    const endpoint = String(config.chatEndpoint || "/api/chat");
+    return `${base}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  };
+
+  const chatUrl = buildChatUrl();
 
   const root = document.createElement("div");
   root.className = "cleo-chat-root";
@@ -70,23 +88,25 @@
     setLoading(true);
 
     try {
-      const res = await fetch(`${config.apiBaseUrl}/api/chat`, {
+      const res = await fetch(chatUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, session_id: "web-visitor" }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error("Request failed");
+        throw new Error(data.error || "Request failed");
       }
 
-      const data = await res.json();
       addMessage(data.reply || "I found some options for you. Could you share more details?", "bot");
     } catch (err) {
       addMessage(
-        "I’m having trouble reaching the listings service right now. Please try again in a moment.",
+        "I couldn’t contact the listings assistant right now. Please check plugin API settings or try again in a minute.",
         "bot"
       );
+      console.error("Cleopatra widget request failed", err);
     } finally {
       setLoading(false);
       input.focus();

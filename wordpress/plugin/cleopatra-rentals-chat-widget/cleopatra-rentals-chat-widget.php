@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cleopatra Rentals Smart Chat Widget
  * Description: Embeds Cleopatra Rentals listing assistant widget and connects it to your listing bot API.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Cleopatra Rentals
  */
 
@@ -32,6 +32,7 @@ function cleo_chat_widget_settings_page() {
     ?>
     <div class="wrap">
         <h1>Cleopatra Chat Widget</h1>
+        <p>This plugin proxies chat requests through WordPress to avoid browser CORS/mixed-content issues.</p>
         <form method="post" action="options.php">
             <?php settings_fields('cleo_chat_widget_settings'); ?>
             <?php do_settings_sections('cleo_chat_widget_settings'); ?>
@@ -39,8 +40,8 @@ function cleo_chat_widget_settings_page() {
                 <tr>
                     <th scope="row"><label for="cleo_chat_widget_api_base_url">API Base URL</label></th>
                     <td>
-                        <input type="url" id="cleo_chat_widget_api_base_url" name="cleo_chat_widget_api_base_url" value="<?php echo esc_attr(get_option('cleo_chat_widget_api_base_url', 'https://YOUR-API-DOMAIN')); ?>" class="regular-text" />
-                        <p class="description">Example: https://bot.cleopatrarentals.one</p>
+                        <input type="url" id="cleo_chat_widget_api_base_url" name="cleo_chat_widget_api_base_url" value="<?php echo esc_attr(get_option('cleo_chat_widget_api_base_url', '')); ?>" class="regular-text" placeholder="https://bot.cleopatrarentals.one" />
+                        <p class="description">Required. Example: https://bot.cleopatrarentals.one</p>
                     </td>
                 </tr>
                 <tr>
@@ -62,9 +63,66 @@ function cleo_chat_widget_settings_page() {
     <?php
 }
 
+function cleo_chat_widget_register_rest_routes() {
+    register_rest_route('cleo-chat/v1', '/chat', array(
+        'methods' => 'POST',
+        'callback' => 'cleo_chat_widget_proxy_chat',
+        'permission_callback' => '__return_true',
+    ));
+}
+add_action('rest_api_init', 'cleo_chat_widget_register_rest_routes');
+
+function cleo_chat_widget_proxy_chat(WP_REST_Request $request) {
+    $api_base_url = trim((string) get_option('cleo_chat_widget_api_base_url', ''));
+    if ($api_base_url === '') {
+        return new WP_REST_Response(array(
+            'error' => 'Plugin not configured. Set API Base URL in Settings > Cleopatra Chat Widget.'
+        ), 500);
+    }
+
+    $body = $request->get_json_params();
+    $message = isset($body['message']) ? trim((string) $body['message']) : '';
+    $session_id = isset($body['session_id']) ? trim((string) $body['session_id']) : 'wp-visitor';
+
+    if ($message === '') {
+        return new WP_REST_Response(array('error' => 'message is required'), 400);
+    }
+
+    $target_url = untrailingslashit($api_base_url) . '/api/chat';
+
+    $response = wp_remote_post($target_url, array(
+        'timeout' => 25,
+        'headers' => array('Content-Type' => 'application/json'),
+        'body' => wp_json_encode(array(
+            'message' => $message,
+            'session_id' => $session_id,
+        )),
+    ));
+
+    if (is_wp_error($response)) {
+        return new WP_REST_Response(array(
+            'error' => 'Could not reach listings API: ' . $response->get_error_message(),
+        ), 502);
+    }
+
+    $status = wp_remote_retrieve_response_code($response);
+    $raw_body = wp_remote_retrieve_body($response);
+    $decoded = json_decode($raw_body, true);
+
+    if (!is_array($decoded)) {
+        return new WP_REST_Response(array(
+            'error' => 'Listings API returned invalid JSON',
+            'raw' => $raw_body,
+        ), 502);
+    }
+
+    return new WP_REST_Response($decoded, $status ?: 200);
+}
+
 function cleo_chat_widget_enqueue_assets() {
     $config = array(
-        'apiBaseUrl' => get_option('cleo_chat_widget_api_base_url', 'https://YOUR-API-DOMAIN'),
+        'apiBaseUrl' => get_option('cleo_chat_widget_api_base_url', ''),
+        'directChatUrl' => esc_url_raw(rest_url('cleo-chat/v1/chat')),
         'title' => get_option('cleo_chat_widget_title', 'Cleopatra Rentals Assistant'),
         'greeting' => get_option('cleo_chat_widget_greeting', 'Hi 👋 Tell me what kind of rental you need and I will find matching listings.')
     );
@@ -73,14 +131,14 @@ function cleo_chat_widget_enqueue_assets() {
         'cleo-chat-widget-style',
         plugin_dir_url(__FILE__) . 'assets/widget.css',
         array(),
-        '1.1.0'
+        '1.2.0'
     );
 
     wp_register_script(
         'cleo-chat-widget-script',
         plugin_dir_url(__FILE__) . 'assets/widget.js',
         array(),
-        '1.1.0',
+        '1.2.0',
         true
     );
 

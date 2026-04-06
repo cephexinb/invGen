@@ -86,6 +86,18 @@ Upload this ZIP in **WordPress Admin → Plugins → Add New → Upload Plugin**
 
 The plugin auto-loads widget JS/CSS on your site frontend.
 
+
+### Fix for “I’m having trouble reaching the listings service right now”
+
+If you see this message in WordPress:
+
+1. Go to **Settings → Cleopatra Chat Widget** and set **API Base URL** (must be HTTPS in production).
+2. Test your backend directly: `https://YOUR-API-DOMAIN/health` should return JSON.
+3. Test WordPress proxy route: `https://YOUR-WP-DOMAIN/wp-json/cleo-chat/v1/chat` with POST body `{"message":"hello"}`.
+4. Ensure your hosting can reach the API domain outbound (firewall/DNS).
+
+The plugin now sends browser requests to WordPress first (`/wp-json/cleo-chat/v1/chat`) and WordPress forwards to your backend API, which avoids frontend CORS/mixed-content failures.
+
 ### 3) Verify on live site
 
 - Open your site in private browser mode.
