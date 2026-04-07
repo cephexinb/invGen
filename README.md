@@ -83,6 +83,7 @@ Upload this ZIP in **WordPress Admin → Plugins → Add New → Upload Plugin**
 5. Set:
    - **API Base URL** (example: `https://bot.cleopatrarentals.one`)
    - Widget title + greeting text.
+6. Click **Test API Connection** button on the settings page to verify WordPress can reach your backend before testing on frontend.
 
 The plugin auto-loads widget JS/CSS on your site frontend.
 

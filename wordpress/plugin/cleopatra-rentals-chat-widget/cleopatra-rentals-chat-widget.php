@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cleopatra Rentals Smart Chat Widget
  * Description: Embeds Cleopatra Rentals listing assistant widget and connects it to your listing bot API.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Cleopatra Rentals
  */
 
@@ -28,7 +28,52 @@ function cleo_chat_widget_admin_menu() {
 }
 add_action('admin_menu', 'cleo_chat_widget_admin_menu');
 
+function cleo_chat_widget_test_connection_ajax() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'Unauthorized'), 403);
+    }
+
+    check_ajax_referer('cleo_chat_widget_test_connection', 'nonce');
+
+    $api_base_url = trim((string) get_option('cleo_chat_widget_api_base_url', ''));
+    if ($api_base_url === '') {
+        wp_send_json_error(array('message' => 'Please set API Base URL first.'), 400);
+    }
+
+    $health_url = untrailingslashit($api_base_url) . '/health';
+    $response = wp_remote_get($health_url, array('timeout' => 15));
+
+    if (is_wp_error($response)) {
+        wp_send_json_error(array(
+            'message' => 'Connection failed: ' . $response->get_error_message(),
+            'health_url' => $health_url,
+        ), 502);
+    }
+
+    $status = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $decoded = json_decode($body, true);
+
+    if ($status < 200 || $status >= 300) {
+        wp_send_json_error(array(
+            'message' => 'Health endpoint returned non-2xx response.',
+            'status' => $status,
+            'health_url' => $health_url,
+            'body' => $body,
+        ), 502);
+    }
+
+    wp_send_json_success(array(
+        'message' => 'Connection successful.',
+        'status' => $status,
+        'health_url' => $health_url,
+        'payload' => is_array($decoded) ? $decoded : $body,
+    ));
+}
+add_action('wp_ajax_cleo_chat_widget_test_connection', 'cleo_chat_widget_test_connection_ajax');
+
 function cleo_chat_widget_settings_page() {
+    $nonce = wp_create_nonce('cleo_chat_widget_test_connection');
     ?>
     <div class="wrap">
         <h1>Cleopatra Chat Widget</h1>
@@ -59,6 +104,44 @@ function cleo_chat_widget_settings_page() {
             </table>
             <?php submit_button(); ?>
         </form>
+
+        <hr />
+        <h2>Connection Test</h2>
+        <p>Use this button to verify WordPress can reach your backend API health endpoint.</p>
+        <button id="cleo-chat-test-btn" class="button button-secondary">Test API Connection</button>
+        <pre id="cleo-chat-test-output" style="margin-top:12px;padding:12px;background:#f6f7f7;border:1px solid #dcdcde;max-width:900px;white-space:pre-wrap;"></pre>
+
+        <script>
+          (function () {
+            const btn = document.getElementById('cleo-chat-test-btn');
+            const out = document.getElementById('cleo-chat-test-output');
+            if (!btn || !out) return;
+
+            btn.addEventListener('click', async function () {
+              out.textContent = 'Testing connection...';
+              btn.disabled = true;
+
+              try {
+                const params = new URLSearchParams();
+                params.append('action', 'cleo_chat_widget_test_connection');
+                params.append('nonce', <?php echo wp_json_encode($nonce); ?>);
+
+                const res = await fetch(ajaxurl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                  body: params.toString(),
+                });
+
+                const data = await res.json();
+                out.textContent = JSON.stringify(data, null, 2);
+              } catch (err) {
+                out.textContent = 'Connection test failed: ' + (err && err.message ? err.message : String(err));
+              } finally {
+                btn.disabled = false;
+              }
+            });
+          })();
+        </script>
     </div>
     <?php
 }
@@ -131,14 +214,14 @@ function cleo_chat_widget_enqueue_assets() {
         'cleo-chat-widget-style',
         plugin_dir_url(__FILE__) . 'assets/widget.css',
         array(),
-        '1.2.0'
+        '1.3.0'
     );
 
     wp_register_script(
         'cleo-chat-widget-script',
         plugin_dir_url(__FILE__) . 'assets/widget.js',
         array(),
-        '1.2.0',
+        '1.3.0',
         true
     );
 
